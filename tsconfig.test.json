@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig",
+  "compilerOptions": {
+    "declaration": false,
+    "outDir": "./dist-tests/",
+    "types": ["node", "mocha"]
+  },
+  "include": ["./src/**/*.ts", "./tests/**/*.ts"]
+}

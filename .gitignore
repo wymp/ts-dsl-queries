@@ -1,0 +1,5 @@
+*.sw[op]
+dist
+dist-tests
+node_modules
+package-lock.json
