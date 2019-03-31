@@ -11,5 +11,3 @@ This library allows you to specify incoming field names and the acceptable opera
 ## To-Do
 
 - Add optional value constraints to QuerySpec object
-- Use `HttpErrors` as foundation for all errors
-- Finish tests

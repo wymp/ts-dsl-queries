@@ -6,9 +6,9 @@ import {
   QueryNode,
   DslQuery,
   QuerySpec,
-  ObstructionInterface,
   TranslatorFunction
 } from "./Types";
+import * as errors from "./Errors";
 
 // Internal
 
@@ -22,7 +22,11 @@ const isQueryLeaf = function(q: any): q is QueryLeaf {
     q.length === 3 &&
     typeof q[0] === "string" &&
     typeof q[1] === "string" &&
-    (typeof q[2] === "string" || isArray(q[2]))
+    (typeof q[2] === "string" ||
+      typeof q[2] === "number" ||
+      typeof q[2] === "boolean" ||
+      q[2] === null ||
+      isArray(q[2]))
   );
 };
 
@@ -40,7 +44,10 @@ const isQuery = function(q: any, lite: boolean = false): q is DslQuery {
 
 const isQuerySpec = function(spec: any): spec is QuerySpec {
   if (typeof spec !== "object") {
-    throw new Error(`Invalid QuerySpec: QuerySpec must be an object.`);
+    throw new errors.BadQuerySpec(
+      `Invalid QuerySpec: QuerySpec must be an object.`,
+      "ObjectRequired"
+    );
   }
 
   const invalidKeys: Array<string> = [];
@@ -51,24 +58,34 @@ const isQuerySpec = function(spec: any): spec is QuerySpec {
   });
 
   if (invalidKeys.length > 0) {
-    throw new Error(`Invalid QuerySpec: Invalid keys found: '${invalidKeys.join("', '")}'`);
+    throw new errors.BadQuerySpec(
+      `Invalid QuerySpec: Invalid keys found: '${invalidKeys.join("', '")}'`,
+      "InvalidKeys"
+    );
   }
 
   if (!spec.hasOwnProperty("defaultComparisonOperators")) {
-    throw new Error("Invalid QuerySpec: Missing 'defaultComparisonOperators' array");
+    throw new errors.BadQuerySpec(
+      "Invalid QuerySpec: Missing 'defaultComparisonOperators' array",
+      "MissingComparisonOperators"
+    );
   }
 
   if (!isArray(spec.defaultComparisonOperators)) {
-    throw new Error("Invalid QuerySpec: 'defaultComparisonOperators' must be an array.");
+    throw new errors.BadQuerySpec(
+      "Invalid QuerySpec: 'defaultComparisonOperators' must be an array.",
+      "ComparisonOperatorsNotArray"
+    );
   }
 
   if (
     (spec.hasOwnProperty("fieldSpecs") && typeof spec.fieldSpecs !== "object") ||
     isArray(spec.fieldSpecs)
   ) {
-    throw new Error(
+    throw new errors.BadQuerySpec(
       "Invalid QuerySpec: 'fieldSpecs' must be a map of field names to arrays of acceptable " +
-        "comparison operators for the given field."
+        "comparison operators for the given field.",
+      "MalformedFieldSpecs"
     );
   }
 
@@ -78,7 +95,7 @@ const isQuerySpec = function(spec: any): spec is QuerySpec {
 const validateDslQueryOperator = function(
   operator: string,
   validOperators: Array<string>
-): Array<ObstructionInterface> {
+): Array<errors.ObstructionInterface> {
   if (["and", "or"].indexOf(operator) === -1) {
     return [
       {
@@ -94,8 +111,8 @@ const validateDslQueryOperator = function(
 const validateDslQueryValue = function(
   val: QueryNode,
   querySpec: QuerySpec
-): Array<ObstructionInterface> {
-  let o: Array<ObstructionInterface> = [];
+): Array<errors.ObstructionInterface> {
+  let o: Array<errors.ObstructionInterface> = [];
 
   if (val.length === 0) {
     return o;
@@ -143,7 +160,7 @@ const validateDslQueryValue = function(
         field: string,
         val: any,
         valIndex?: number
-      ): Array<ObstructionInterface> {
+      ): Array<errors.ObstructionInterface> {
         if (val !== null && ["string", "number", "boolean"].indexOf(typeof val) === -1) {
           const index = valIndex ? ` (argument #${valIndex + 1})` : "";
           return [
@@ -172,13 +189,13 @@ const validateDslQueryValue = function(
           // Otherwise....
         } else {
           // Make sure the operator supports arrays
-          if (next[1] !== "in" && next[1] !== "not in") {
+          if (["in", "not in", "between"].indexOf(next[1]) === -1) {
             o.push({
               code: "InvalidDslQueryValue",
               text:
                 `Field '${next[0]}': You've supplied an array of values, but used ` +
-                `a comparison operator other than 'in' or 'not in' (you used '${next[1]}'). ` +
-                `Arrays of values may only be used with operators 'in' or 'not in'`
+                `a comparison operator other than 'in', 'not in' or 'between' (you used ` +
+                `'${next[1]}'). Arrays of values may only be used with operators 'in' or 'not in'`
             });
 
             // If all is cool so far, check each value of the array
@@ -213,35 +230,51 @@ export const dslQueryDefaultComparisonOperators = [
   "like",
   "not like",
   "in",
-  "not in"
+  "not in",
+  "between"
 ];
 
-export const defaultTranslatorFunction: TranslatorFunction = function(
-  leaf: QueryLeaf
+export const toSqlQuery = function(
+  leaf: QueryLeaf,
+  fieldDelimiter: string = "`"
 ): [string, Array<Value>] {
-  let queryString: string = `${leaf[0]} ${leaf[1]}`;
+  let queryString: string = `${fieldDelimiter}${leaf[0]}${fieldDelimiter} ${leaf[1]}`;
   const params: Array<Value> = [];
 
-  // If it's an array, the next part is a parenthesitized list of placeholders
+  // If it's an array...
   const val = leaf[2];
   if (isArray<Value>(val)) {
-    const placeholders: "?"[] = [];
-    for (let v of val) {
-      placeholders.push("?");
-      params.push(v);
+    // and if the comparison operator is 'between', it's an 'and'-separated tuple
+    if (leaf[1] === "between") {
+      queryString += " ? and ?";
+      params.push(val[0]);
+      params.push(val[1]);
+    } else {
+      // Otherwise, the next part is a parenthesitized list of placeholders
+      const placeholders: "?"[] = [];
+      for (let v of val) {
+        placeholders.push("?");
+        params.push(v);
+      }
+      queryString += " (" + placeholders.join(", ") + ")";
     }
-    queryString += " (" + placeholders.join(", ") + ")";
-
-    // Otherwise, the next part is just a single placeholder
   } else {
-    queryString += "?";
+    // Otherwise, the next part is just a single placeholder
+    queryString += " ?";
     params.push(val);
   }
 
   return [queryString, params];
 };
 
-export const parseDslQuery = function(q: any, querySpec: object = {}): DslQuery | null {
+export const defaultTranslatorFunction = function(
+  leaf: QueryLeaf,
+  fieldDelimiter: string = "`"
+): [string, Array<Value>] {
+  return toSqlQuery(leaf, fieldDelimiter);
+};
+
+export const parseDslQuery = function(q: any, querySpec: Partial<QuerySpec> = {}): DslQuery | null {
   if (q === null || (typeof q === "string" && q.trim() === "")) {
     return null;
   }
@@ -252,7 +285,7 @@ export const parseDslQuery = function(q: any, querySpec: object = {}): DslQuery 
   }
   if (!isQuerySpec(querySpec)) {
     // NOTE: because isQuerySpec throws errors, this will never execute (but that's alright)
-    throw new Error("Invalid QuerySpec");
+    throw new errors.BadQuerySpec("Invalid QuerySpec");
   }
 
   // Capture original query for error reporting
@@ -263,18 +296,20 @@ export const parseDslQuery = function(q: any, querySpec: object = {}): DslQuery 
     try {
       q = JSON.parse(q.trim());
     } catch (e) {
-      throw new Error(
+      throw new errors.BadQuery(
         `The query you've passed does not appear to be valid JSON: ${e.message}. Original ` +
-          `query:\n\n${orig}`
+          `query:\n\n${orig}`,
+        "InvalidJson"
       );
     }
   }
 
   // Initial query validations
   if (typeof q !== "object" || q === null) {
-    throw new Error(
+    throw new errors.BadQuery(
       "The query you've passed does not appear to be valid. It should have parsed to a valid " +
-        `JSON object or array, but didn't. Original query: '${orig}'`
+        `JSON object or array, but didn't. Original query: '${orig}'`,
+      "NonObject"
     );
   }
 
@@ -295,15 +330,16 @@ export const parseDslQuery = function(q: any, querySpec: object = {}): DslQuery 
     }
     q.o = <"and" | "or">q.o.toLowerCase();
   } else {
-    throw new Error(
+    throw new errors.BadQuery(
       "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf, " +
-        `a DslQueryNode, or a DslQuery (see https://github.com/cfxmarkets/ts-dsl-queries.git for ` +
-        `for more information). Original query: '${orig}'`
+        `a DslQueryNode, or a DslQuery (see https://github.com/OpenFinanceIO/ts-dsl-queries.git ` +
+        `for more information). Original query: '${orig}'`,
+      "MalformedInputObject"
     );
   }
 
   // Full query validations
-  let o: Array<ObstructionInterface> = [];
+  let o: Array<errors.ObstructionInterface> = [];
   o = o.concat(validateDslQueryOperator(q.o, ["and", "or"]));
   o = o.concat(validateDslQueryValue(q.v, querySpec));
 
@@ -313,7 +349,9 @@ export const parseDslQuery = function(q: any, querySpec: object = {}): DslQuery 
     for (let obstruction of o) {
       msg += `* ${obstruction.text} (${obstruction.code})\n`;
     }
-    throw new Error(msg);
+    const e = new errors.BadQuery(msg, "Obstructions");
+    e.obstructions = o;
+    throw e;
   }
 
   return q;
@@ -329,14 +367,15 @@ export const dslQueryToString = function(
   }
 
   const parts: Array<string> = [];
-  const params: Array<Value> = [];
-  for (let el of q.v) {
+  let params: Array<Value> = [];
+  for (let i = 0; i < q.v.length; i++) {
+    const el = q.v[i];
     const result: [string, Array<Value>] = isQueryLeaf(el)
       ? translator(el)
-      : dslQueryToString(q, translator, true);
+      : dslQueryToString(el, translator, true);
 
     parts.push(result[0]);
-    params.concat(result[1]);
+    params = params.concat(result[1]);
   }
 
   let queryString = parts.join(` ${q.o} `);

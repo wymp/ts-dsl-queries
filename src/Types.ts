@@ -14,9 +14,4 @@ export type QuerySpec = {
   defaultComparisonOperators: Array<ComparisonOperator>;
 };
 
-export interface ObstructionInterface {
-  code: string;
-  text: string;
-}
-
 export type TranslatorFunction = (leaf: QueryLeaf) => [string, Array<Value>];

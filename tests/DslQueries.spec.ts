@@ -1,6 +1,6 @@
 import "mocha";
 import { assert } from "chai";
-import { parseDslQuery, dslQueryToString } from "../src/index";
+import { parseDslQuery, dslQueryToString, Value, QueryLeaf } from "../src/index";
 import * as errors from "@openfinance/http-errors";
 
 describe("parseDslQuery", () => {
@@ -72,7 +72,7 @@ describe("parseDslQuery", () => {
       [JSON.stringify({ v: [["myField", "is", "something"]] }), "'is' is not a valid operator"],
       [
         JSON.stringify({ v: [["myField", "=", ["something"]]] }),
-        "You've supplied an array of values, but used a comparison operator other than 'in' or 'not in'"
+        "You've supplied an array of values, but used a comparison operator other than"
       ]
     ];
 
@@ -92,11 +92,91 @@ describe("parseDslQuery", () => {
     });
   });
 
-  it("should accept query spec with or without defaultComparisonOperators");
+  it("should accept query spec with or without defaultComparisonOperators", () => {
+    let q = parseDslQuery(JSON.stringify(["name", "=", "test"]), { fieldSpecs: { name: ["="] } });
+    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
 
-  it("should parse query without query spec");
+    q = parseDslQuery(JSON.stringify(["name", "=", "test"]), {
+      fieldSpecs: {
+        name: []
+      },
+      defaultComparisonOperators: ["="]
+    });
+    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
+  });
+
+  it("should parse query without query spec", () => {
+    let q = parseDslQuery(JSON.stringify(["name", "=", "test"]));
+    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
+  });
 });
 
-describe("dslQueryToString", () => {});
+describe("dslQueryToString", () => {
+  it("should stringify simple queries correctly", () => {
+    let q = parseDslQuery(JSON.stringify(["name", "=", "test"]));
+    let r = dslQueryToString(q!);
+    assert.equal(r[0], "`name` = ?");
+    assert.equal(r[1].length, 1);
+    assert.equal(r[1][0], "test");
 
-describe("defaultTranslatorFunction", () => {});
+    q = parseDslQuery(
+      JSON.stringify(["dob", "between", ["2000-01-01 00:00:00", "2001-01-01 00:00:00"]])
+    );
+    r = dslQueryToString(q!);
+    assert.equal(r[0], "`dob` between ? and ?");
+    assert.equal(r[1].length, 2);
+    assert.equal(r[1][0], "2000-01-01 00:00:00");
+    assert.equal(r[1][1], "2001-01-01 00:00:00");
+
+    q = parseDslQuery(JSON.stringify([["name", "=", "test"], ["age", ">", 30]]));
+    r = dslQueryToString(q!);
+    assert.equal(r[0], "`name` = ? and `age` > ?");
+    assert.equal(r[1].length, 2);
+    assert.equal(r[1][0], "test");
+    assert.equal(r[1][1], 30);
+
+    q = parseDslQuery(JSON.stringify({ o: "or", v: [["name", "=", "test"], ["age", ">", 30]] }));
+    r = dslQueryToString(q!);
+    assert.equal(r[0], "`name` = ? or `age` > ?");
+    assert.equal(r[1].length, 2);
+    assert.equal(r[1][0], "test");
+    assert.equal(r[1][1], 30);
+  });
+
+  it("should stringify complex queries correctly", () => {
+    let q = parseDslQuery(
+      JSON.stringify({
+        o: "and",
+        v: [
+          ["name", "=", "test"],
+          {
+            o: "or",
+            v: [
+              ["age", ">", 30],
+              ["status", "in", ["retired", "deceased", "disabled"]],
+              {
+                o: "and",
+                v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]]
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    let r = dslQueryToString(q!);
+    assert.equal(
+      r[0],
+      "`name` = ? and (`age` > ? or `status` in (?, ?, ?) or (`parent` in (?, ?) and `status` = ?))"
+    );
+    assert.equal(r[1].length, 8);
+    assert.equal(r[1][0], "test");
+    assert.equal(r[1][1], 30);
+    assert.equal(r[1][2], "retired");
+    assert.equal(r[1][3], "deceased");
+    assert.equal(r[1][4], "disabled");
+    assert.equal(r[1][5], "bob");
+    assert.equal(r[1][6], "tammy");
+    assert.equal(r[1][7], "youthful");
+  });
+});
