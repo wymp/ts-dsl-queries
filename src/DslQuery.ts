@@ -1,4 +1,4 @@
-import { QuerySpec, DslQueryData, QueryNode, TranslatorFunction } from "./Types";
+import { QuerySpec, DslQueryData, QueryLeaf, QueryNode, TranslatorFunction } from "./Types";
 import { parseDslQuery, dslQueryToString, toSqlQuery, isQueryLeaf } from "./Functions";
 
 export class DslQuery {
@@ -30,6 +30,28 @@ export class DslQuery {
     };
 
     return has(key, this.value.v);
+  }
+
+  public get(key: string): Array<QueryLeaf> | null {
+    if (this.value === null) {
+      return null;
+    }
+
+    const get = function(k: string, node: QueryNode): Array<QueryLeaf> {
+      let values: Array<QueryLeaf> = [];
+      for (let v of node) {
+        if (isQueryLeaf(v)) {
+          if (v[0] === k) {
+            values.push(v);
+          }
+        } else {
+          values = values.concat(get(k, v.v));
+        }
+      }
+      return values;
+    };
+
+    return get(key, this.value.v);
   }
 
   public toString() {

@@ -232,4 +232,15 @@ describe("DslQuery", function() {
     assert.equal(r[1][6], "tammy");
     assert.equal(r[1][7], "youthful");
   });
+
+  it("should correctly return arrays of query leaves on get", function() {
+    let q = new DslQuery(complexQueryData);
+    let values = q.get("status");
+    assert.isNotNull(values);
+    assert.equal(values!.length, 2);
+    assert.equal(values![0][1], "in");
+    assert.isTrue(Array.isArray(values![0][2]));
+    assert.equal(values![1][1], "=");
+    assert.equal(values![1][2], "youthful");
+  });
 });
