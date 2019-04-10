@@ -2,8 +2,8 @@ export type FieldName = string;
 export type ComparisonOperator = string;
 export type Value = string | number | boolean | null;
 export type QueryLeaf = [FieldName, ComparisonOperator, Value | Array<Value>];
-export type QueryNode = Array<QueryLeaf | DslQuery>;
-export interface DslQuery {
+export type QueryNode = Array<QueryLeaf | DslQueryData>;
+export interface DslQueryData {
   o: "and" | "or";
   v: QueryNode;
 }

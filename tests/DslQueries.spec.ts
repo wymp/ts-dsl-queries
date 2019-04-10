@@ -1,7 +1,36 @@
 import "mocha";
 import { assert } from "chai";
-import { parseDslQuery, dslQueryToString, Value, QueryLeaf } from "../src/index";
+import {
+  parseDslQuery,
+  dslQueryToString,
+  Value,
+  QueryLeaf,
+  isQueryLeaf,
+  DslQuery
+} from "../src/index";
 import * as errors from "@openfinance/http-errors";
+
+const complexQueryData = {
+  o: "and",
+  v: [
+    ["name", "=", "test"],
+    {
+      o: "or",
+      v: [
+        ["age", ">", 30],
+        ["status", "in", ["retired", "deceased", "disabled"]],
+        {
+          o: "and",
+          v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]]
+        }
+      ]
+    }
+  ]
+};
+
+const complexQueryString =
+  "`name` = ? and (`age` > ? or `status` in (?, ?, ?) or " +
+  "(`parent` in (?, ?) and `status` = ?))";
 
 describe("parseDslQuery", () => {
   const testQuerySpec = {
@@ -144,31 +173,55 @@ describe("dslQueryToString", () => {
   });
 
   it("should stringify complex queries correctly", () => {
-    let q = parseDslQuery(
-      JSON.stringify({
-        o: "and",
-        v: [
-          ["name", "=", "test"],
-          {
-            o: "or",
-            v: [
-              ["age", ">", 30],
-              ["status", "in", ["retired", "deceased", "disabled"]],
-              {
-                o: "and",
-                v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]]
-              }
-            ]
-          }
-        ]
-      })
-    );
+    let q = parseDslQuery(JSON.stringify(complexQueryData));
 
     let r = dslQueryToString(q!);
-    assert.equal(
-      r[0],
-      "`name` = ? and (`age` > ? or `status` in (?, ?, ?) or (`parent` in (?, ?) and `status` = ?))"
+    assert.equal(r[0], complexQueryString);
+    assert.equal(r[1].length, 8);
+    assert.equal(r[1][0], "test");
+    assert.equal(r[1][1], 30);
+    assert.equal(r[1][2], "retired");
+    assert.equal(r[1][3], "deceased");
+    assert.equal(r[1][4], "disabled");
+    assert.equal(r[1][5], "bob");
+    assert.equal(r[1][6], "tammy");
+    assert.equal(r[1][7], "youthful");
+  });
+});
+
+describe("DslQuery", function() {
+  it("should instantiate correctly and present it's value", function() {
+    let q = new DslQuery(JSON.stringify(["name", "=", "jim chavo"]));
+    assert.isTrue(q.hasOwnProperty("value"));
+    assert.isNotNull(q.value);
+
+    const clause = q.value!.v[0];
+    if (isQueryLeaf(clause)) {
+      assert.equal(clause[0], "name");
+      assert.equal(clause[1], "=");
+      assert.equal(clause[2], "jim chavo");
+    } else {
+      assert.fail("Clause is not a query leaf!");
+    }
+  });
+
+  it("should correctly determine whether or not it 'has' a clause", function() {
+    let q = new DslQuery(
+      JSON.stringify([
+        ["name", "=", "jim chavo"],
+        { v: [["email", "like", "something@something.com"]] }
+      ])
     );
+
+    assert.isTrue(q.has("name"));
+    assert.isTrue(q.has("email"));
+    assert.isFalse(q.has("telephone"));
+  });
+
+  it("should correctly go to string", function() {
+    let q = new DslQuery(complexQueryData);
+    let r = q.toString();
+    assert.equal(r[0], complexQueryString);
     assert.equal(r[1].length, 8);
     assert.equal(r[1][0], "test");
     assert.equal(r[1][1], 30);

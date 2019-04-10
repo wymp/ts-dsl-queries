@@ -1,6 +1,6 @@
 {
   "name": "@openfinance/dsl-queries",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "A small node library for normalizing and validating incoming DSL queries in a specific format.",
   "repository": {
     "type": "git",

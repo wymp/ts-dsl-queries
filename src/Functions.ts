@@ -4,19 +4,17 @@ import {
   Value,
   QueryLeaf,
   QueryNode,
-  DslQuery,
+  DslQueryData,
   QuerySpec,
   TranslatorFunction
 } from "./Types";
 import * as errors from "./Errors";
 
-// Internal
-
 const isArray = function<T>(a: any): a is Array<T> {
   return Array.isArray(a);
 };
 
-const isQueryLeaf = function(q: any): q is QueryLeaf {
+export const isQueryLeaf = function(q: any): q is QueryLeaf {
   return (
     isArray(q) &&
     q.length === 3 &&
@@ -30,11 +28,11 @@ const isQueryLeaf = function(q: any): q is QueryLeaf {
   );
 };
 
-const isQueryNode = function(q: any): q is QueryNode {
+export const isQueryNode = function(q: any): q is QueryNode {
   return isArray(q) && (q.length === 0 || isQueryLeaf(q[0]) || isQuery(q[0]));
 };
 
-const isQuery = function(q: any, lite: boolean = false): q is DslQuery {
+export const isQuery = function(q: any, lite: boolean = false): q is DslQueryData {
   if (lite) {
     return typeof q === "object" && q.hasOwnProperty("v");
   } else {
@@ -42,7 +40,7 @@ const isQuery = function(q: any, lite: boolean = false): q is DslQuery {
   }
 };
 
-const isQuerySpec = function(spec: any): spec is QuerySpec {
+export const isQuerySpec = function(spec: any): spec is QuerySpec {
   if (typeof spec !== "object") {
     throw new errors.BadQuerySpec(
       `Invalid QuerySpec: QuerySpec must be an object.`,
@@ -92,7 +90,7 @@ const isQuerySpec = function(spec: any): spec is QuerySpec {
   return true;
 };
 
-const validateDslQueryOperator = function(
+export const validateDslQueryOperator = function(
   operator: string,
   validOperators: Array<string>
 ): Array<errors.ObstructionInterface> {
@@ -108,7 +106,7 @@ const validateDslQueryOperator = function(
   }
 };
 
-const validateDslQueryValue = function(
+export const validateDslQueryValue = function(
   val: QueryNode,
   querySpec: QuerySpec
 ): Array<errors.ObstructionInterface> {
@@ -216,8 +214,6 @@ const validateDslQueryValue = function(
   return o;
 };
 
-// External
-
 export const dslQueryDefaultComparisonOperators = [
   "=",
   "!=",
@@ -274,7 +270,10 @@ export const defaultTranslatorFunction = function(
   return toSqlQuery(leaf, fieldDelimiter);
 };
 
-export const parseDslQuery = function(q: any, querySpec: Partial<QuerySpec> = {}): DslQuery | null {
+export const parseDslQuery = function(
+  q: any,
+  querySpec: Partial<QuerySpec> = {}
+): DslQueryData | null {
   if (q === null || (typeof q === "string" && q.trim() === "")) {
     return null;
   }
@@ -358,7 +357,7 @@ export const parseDslQuery = function(q: any, querySpec: Partial<QuerySpec> = {}
 };
 
 export const dslQueryToString = function(
-  q: DslQuery,
+  q: DslQueryData,
   translator: TranslatorFunction | null = null,
   parens: boolean = false
 ): [string, Array<Value>] {
