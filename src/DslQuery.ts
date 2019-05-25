@@ -1,4 +1,4 @@
-import { QuerySpec, DslQueryData, QueryLeaf, QueryNode, TranslatorFunction } from "./Types";
+import { Value, QuerySpec, DslQueryData, QueryLeaf, QueryNode, TranslatorFunction } from "./Types";
 import { parseDslQuery, dslQueryToString, toSqlQuery, isQueryLeaf } from "./Functions";
 
 export class DslQuery {
@@ -54,11 +54,11 @@ export class DslQuery {
     return get(key, this.value.v);
   }
 
-  public toString() {
+  public toString(): [string, Array<Value>] {
     if (this.value) {
       return dslQueryToString(this.value, DslQuery.translator);
     } else {
-      return "";
+      return ["", []];
     }
   }
 }
