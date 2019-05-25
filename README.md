@@ -59,13 +59,13 @@ logical operator. Finally, you can write very complex queries like, for example,
 This translates to the following more "human-readable" form:
 
 ```
-name = "test" &&
+name === "test" &&
 (
   age > 30 ||
   status in ("deceased", "disabled") ||
   (
-    status === "youthful"
-    parent in ("bob", "tammy") &&
+    status === "youthful" &&
+    parent in ("bob", "tammy")
   )
 )
 ```
