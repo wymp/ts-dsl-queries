@@ -127,22 +127,17 @@ try {
   });
 } catch (e) {
   // DslQuery will throw an HttpError (from [@openfinance/http-errors](https://www.npmjs.com/package/@openfinance/http-errors))
-  if (Errors.isHttpError(e)) {
-    res.code(e.status).send({
-      errors: e.obstructions.length > 0
-        ? e.obstructions.map((o) => { code: o.code, title: e.name, detail: o.text })
-        : [{ code: e.code, title: e.name¸ detail: e.message }]
-    });
-  } else {
-    // If it's not an HTTP error, return some default message
-    res.code(500).send({
-      errors: [{
-        code: "InternalServerError",
-        title: "InternalServerError",
-        detail: "Sorry, there was an error while trying to execute your request."
-      }]
-    });
+  // If not that, just convert it for easy responses
+  if (!Errors.isHttpError(e)) {
+    e = Errors.InternalServerError.fromError(e);
   }
+
+  // Return an error response
+  res.code(e.status).send({
+    errors: e.obstructions.length > 0
+      ? e.obstructions.map((o) => { code: o.code, title: e.name, detail: o.text })
+      : [{ code: e.code, title: e.name¸ detail: e.message }]
+  });
 }
 ```
 
