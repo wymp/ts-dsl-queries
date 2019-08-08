@@ -14,6 +14,10 @@ const isArray = function<T>(a: any): a is Array<T> {
   return Array.isArray(a);
 };
 
+interface GenericParamSet {
+  [param: string]: unknown;
+}
+
 export const isQueryLeaf = function(q: any): q is QueryLeaf {
   return (
     isArray(q) &&
@@ -93,7 +97,7 @@ export const isQuerySpec = function(spec: any): spec is QuerySpec {
 export const validateDslQueryOperator = function(
   operator: string,
   validOperators: Array<string>
-): Array<errors.ObstructionInterface> {
+): Array<errors.ObstructionInterface<GenericParamSet>> {
   if (["and", "or"].indexOf(operator) === -1) {
     return [
       {
@@ -109,8 +113,8 @@ export const validateDslQueryOperator = function(
 export const validateDslQueryValue = function(
   val: QueryNode,
   querySpec: QuerySpec
-): Array<errors.ObstructionInterface> {
-  let o: Array<errors.ObstructionInterface> = [];
+): Array<errors.ObstructionInterface<GenericParamSet>> {
+  let o: Array<errors.ObstructionInterface<GenericParamSet>> = [];
 
   if (val.length === 0) {
     return o;
@@ -158,7 +162,7 @@ export const validateDslQueryValue = function(
         field: string,
         val: any,
         valIndex?: number
-      ): Array<errors.ObstructionInterface> {
+      ): Array<errors.ObstructionInterface<GenericParamSet>> {
         if (val !== null && ["string", "number", "boolean"].indexOf(typeof val) === -1) {
           const index = valIndex ? ` (argument #${valIndex + 1})` : "";
           return [
@@ -338,7 +342,7 @@ export const parseDslQuery = function(
   }
 
   // Full query validations
-  let o: Array<errors.ObstructionInterface> = [];
+  let o: Array<errors.ObstructionInterface<GenericParamSet>> = [];
   o = o.concat(validateDslQueryOperator(q.o, ["and", "or"]));
   o = o.concat(validateDslQueryValue(q.v, querySpec));
 
