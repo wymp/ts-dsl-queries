@@ -1,6 +1,6 @@
 {
   "name": "@openfinance/dsl-queries",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "A small node library for normalizing and validating incoming DSL queries in a specific format.",
   "repository": {
     "type": "git",
@@ -9,7 +9,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "tsc -p tsconfig.test.json && mocha dist-tests/tests"
+    "test": "tsc -p tsconfig.test.json && mocha dist-tests/tests",
+    "prepublishOnly": "tsc"
   },
   "author": "OpenFinance",
   "license": "MIT",
@@ -27,7 +28,8 @@
     "pretty-quick": "^1.11.1"
   },
   "prettier": {
-    "printWidth": 100
+    "printWidth": 100,
+    "trailingComma": "es5"
   },
   "husky": {
     "hooks": {

@@ -1,3 +1,5 @@
+import { DslQuery } from "./DslQuery";
+
 export type FieldName = string;
 export type ComparisonOperator = string;
 export type Value = string | number | boolean | null;
@@ -13,5 +15,10 @@ export type QuerySpec = {
   };
   defaultComparisonOperators: Array<ComparisonOperator>;
 };
+
+export interface DslQueryBuilder {
+  and(q: DslQuery | DslQueryData | QueryNode | QueryLeaf): DslQuery;
+  or(q: DslQuery | DslQueryData | QueryNode | QueryLeaf): DslQuery;
+}
 
 export type TranslatorFunction = (leaf: QueryLeaf) => [string, Array<Value>];

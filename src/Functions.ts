@@ -6,7 +6,7 @@ import {
   QueryNode,
   DslQueryData,
   QuerySpec,
-  TranslatorFunction
+  TranslatorFunction,
 } from "./Types";
 import * as errors from "./Errors";
 
@@ -32,17 +32,22 @@ export const isQueryLeaf = function(q: any): q is QueryLeaf {
   );
 };
 
-export const isQueryNode = function(q: any): q is QueryNode {
-  return isArray(q) && (q.length === 0 || isQueryLeaf(q[0]) || isQuery(q[0]));
+export const isQueryNode = function(q: any, lite: boolean = false): q is QueryNode {
+  return isArray(q) && (q.length === 0 || isQueryLeaf(q[0]) || isDslQueryData(q[0], lite));
 };
 
-export const isQuery = function(q: any, lite: boolean = false): q is DslQueryData {
+export const isDslQueryData = function(q: any, lite: boolean = false): q is DslQueryData {
   if (lite) {
     return typeof q === "object" && q.hasOwnProperty("v");
   } else {
-    return typeof q === "object" && q.hasOwnProperty("v") && isQueryNode(q["v"]);
+    return typeof q === "object" && q.hasOwnProperty("v") && isQueryNode(q["v"], lite);
   }
 };
+
+/**
+ * @deprecated This function is for backward compatibility only. Use isDslQuery instead
+ */
+export const isQuery = isDslQueryData;
 
 export const isQuerySpec = function(spec: any): spec is QuerySpec {
   if (typeof spec !== "object") {
@@ -102,8 +107,8 @@ export const validateDslQueryOperator = function(
     return [
       {
         code: "DslQueryInvalidOperator",
-        text: `You may only use 'and' or 'or' as the operator in a DslQuery. You passed '${operator}'`
-      }
+        text: `You may only use 'and' or 'or' as the operator in a DslQuery. You passed '${operator}'`,
+      },
     ];
   } else {
     return [];
@@ -122,7 +127,7 @@ export const validateDslQueryValue = function(
 
   for (let next of val) {
     // If it's a full query, recurse
-    if (isQuery(next, true)) {
+    if (isDslQueryData(next, true)) {
       o = o.concat(validateDslQueryValue(next.v, querySpec));
     } else {
       let checkOperator: boolean = true;
@@ -136,7 +141,7 @@ export const validateDslQueryValue = function(
             code: "InvalidDslQueryField",
             text:
               `'${next[0]}' is not a valid field for this DslQuery. Valid fields are ` +
-              `'${querySpec.fieldSpecs.keys.join("', '")}'`
+              `'${querySpec.fieldSpecs.keys.join("', '")}'`,
           });
           checkOperator = false;
         } else {
@@ -152,7 +157,7 @@ export const validateDslQueryValue = function(
           code: "InvalidDslQueryComparisonOperator",
           text:
             `'${next[1]}' is not a valid operator for the '${next[0]}' field of this ` +
-            `DslQuery. Valid operators are '${operatorSet.join("', '")}'`
+            `DslQuery. Valid operators are '${operatorSet.join("', '")}'`,
         });
       }
 
@@ -170,8 +175,8 @@ export const validateDslQueryValue = function(
               code: "InvalidDslQueryValue",
               text:
                 `Field '${field}'${index}: You've passed an invalid value. Valid values must ` +
-                `be null, string, number, or boolean. You passed '${JSON.stringify(val)}'.`
-            }
+                `be null, string, number, or boolean. You passed '${JSON.stringify(val)}'.`,
+            },
           ];
         } else {
           return [];
@@ -185,7 +190,7 @@ export const validateDslQueryValue = function(
         if (val.length === 0) {
           o.push({
             code: "InvalidDslQueryValue",
-            text: `Field '${next[0]}': You've supplied an array of values, but it was empty.`
+            text: `Field '${next[0]}': You've supplied an array of values, but it was empty.`,
           });
 
           // Otherwise....
@@ -197,7 +202,7 @@ export const validateDslQueryValue = function(
               text:
                 `Field '${next[0]}': You've supplied an array of values, but used ` +
                 `a comparison operator other than 'in', 'not in' or 'between' (you used ` +
-                `'${next[1]}'). Arrays of values may only be used with operators 'in' or 'not in'`
+                `'${next[1]}'). Arrays of values may only be used with operators 'in' or 'not in'`,
             });
 
             // If all is cool so far, check each value of the array
@@ -231,7 +236,7 @@ export const dslQueryDefaultComparisonOperators = [
   "not like",
   "in",
   "not in",
-  "between"
+  "between",
 ];
 
 export const toSqlQuery = function(
@@ -278,7 +283,7 @@ export const parseDslQuery = function(
   q: any,
   querySpec: Partial<QuerySpec> = {}
 ): DslQueryData | null {
-  if (q === null || (typeof q === "string" && q.trim() === "")) {
+  if (q === null || typeof q === "undefined" || (typeof q === "string" && q.trim() === "")) {
     return null;
   }
 
@@ -320,14 +325,14 @@ export const parseDslQuery = function(
   if (isQueryLeaf(q)) {
     q = {
       o: "and",
-      v: [q]
+      v: [q],
     };
   } else if (isQueryNode(q)) {
     q = {
       o: "and",
-      v: q
+      v: q,
     };
-  } else if (isQuery(q)) {
+  } else if (isDslQueryData(q)) {
     if (!q.o) {
       q.o = "and";
     }

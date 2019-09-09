@@ -6,7 +6,8 @@ import {
   Value,
   QueryLeaf,
   isQueryLeaf,
-  DslQuery
+  DslQuery,
+  DslQueryData,
 } from "../src/index";
 import * as errors from "@openfinance/http-errors";
 
@@ -21,11 +22,11 @@ const complexQueryData = {
         ["status", "in", ["retired", "deceased", "disabled"]],
         {
           o: "and",
-          v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]]
-        }
-      ]
-    }
-  ]
+          v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]],
+        },
+      ],
+    },
+  ],
 };
 
 const complexQueryString =
@@ -37,8 +38,8 @@ describe("parseDslQuery", () => {
     fieldSpecs: {
       name: ["=", "!=", "in"],
       email: ["=", "!="],
-      description: []
-    }
+      description: [],
+    },
   };
 
   it("should return null for null or blank values", () => {
@@ -55,12 +56,12 @@ describe("parseDslQuery", () => {
       [{ fieldSpecs: "name" }, "'fieldSpecs' must be a map of field names"],
       [
         { fieldSpecs: { name: ["="] }, defaultComparisonOperators: { name: ["="] } },
-        "'defaultComparisonOperators' must be an array"
+        "'defaultComparisonOperators' must be an array",
       ],
       [
         { fieldSpecs: { name: ["="] }, defaultComparisonOperators: "=|&|!=" },
-        "'defaultComparisonOperators' must be an array"
-      ]
+        "'defaultComparisonOperators' must be an array",
+      ],
     ];
 
     specs.forEach(spec => {
@@ -88,21 +89,21 @@ describe("parseDslQuery", () => {
       ["null", "It should have parsed to a valid JSON object or array"],
       [
         JSON.stringify({ v: ["one", "two", "three", "four"] }),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,"
+        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
       ],
       [
         JSON.stringify(["one", "two", "three", "four"]),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,"
+        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
       ],
       [
         JSON.stringify({ v: "not correct" }),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,"
+        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
       ],
       [JSON.stringify({ v: [["myField", "is", "something"]] }), "'is' is not a valid operator"],
       [
         JSON.stringify({ v: [["myField", "=", ["something"]]] }),
-        "You've supplied an array of values, but used a comparison operator other than"
-      ]
+        "You've supplied an array of values, but used a comparison operator other than",
+      ],
     ];
 
     queries.forEach(query => {
@@ -127,9 +128,9 @@ describe("parseDslQuery", () => {
 
     q = parseDslQuery(JSON.stringify(["name", "=", "test"]), {
       fieldSpecs: {
-        name: []
+        name: [],
       },
-      defaultComparisonOperators: ["="]
+      defaultComparisonOperators: ["="],
     });
     assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
   });
@@ -192,7 +193,7 @@ describe("dslQueryToString", () => {
 describe("DslQuery", function() {
   it("should instantiate correctly and present it's value", function() {
     let q = new DslQuery(JSON.stringify(["name", "=", "jim chavo"]));
-    assert.isTrue(q.hasOwnProperty("value"));
+    assert.isTrue(q.hasOwnProperty("_value"));
     assert.isNotNull(q.value);
 
     const clause = q.value!.v[0];
@@ -209,7 +210,7 @@ describe("DslQuery", function() {
     let q = new DslQuery(
       JSON.stringify([
         ["name", "=", "jim chavo"],
-        { v: [["email", "like", "something@something.com"]] }
+        { v: [["email", "like", "something@something.com"]] },
       ])
     );
 
@@ -242,5 +243,60 @@ describe("DslQuery", function() {
     assert.isTrue(Array.isArray(values![0][2]));
     assert.equal(values![1][1], "=");
     assert.equal(values![1][2], "youthful");
+  });
+
+  it("should properly modify simple and complex queries", () => {
+    const t1 = <QueryLeaf>["country", "=", "US"];
+    const t2 = <DslQueryData>{ o: "or", v: [["city", "=", "Chicago"], ["city", "=", "Evanston"]] };
+    const t3 = <QueryLeaf>["zip", "like", "606%"];
+    const t4 = <QueryLeaf>["name", "=", "mr. schwaab"];
+
+    let q1 = new DslQuery(t1);
+    assert.equal(JSON.stringify(q1.value), JSON.stringify({ o: "and", v: [t1] }));
+
+    let q2 = q1.and(t2);
+    assert.equal(JSON.stringify(q1.value), JSON.stringify({ o: "and", v: [t1] }));
+    assert.equal(JSON.stringify(q2.value), JSON.stringify({ o: "and", v: [t1, t2] }));
+
+    let q3 = q2.and(t3);
+    assert.equal(JSON.stringify(q1.value), JSON.stringify({ o: "and", v: [t1] }));
+    assert.equal(JSON.stringify(q2.value), JSON.stringify({ o: "and", v: [t1, t2] }));
+    assert.equal(
+      JSON.stringify(q3.value),
+      JSON.stringify({ o: "and", v: [t1, t2, { o: "and", v: [t3] }] })
+    );
+
+    let q4 = q1.or(t2).or(t3);
+    assert.equal(JSON.stringify(q1.value), JSON.stringify({ o: "and", v: [t1] }));
+    assert.equal(JSON.stringify(q2.value), JSON.stringify({ o: "and", v: [t1, t2] }));
+    assert.equal(
+      JSON.stringify(q3.value),
+      JSON.stringify({ o: "and", v: [t1, t2, { o: "and", v: [t3] }] })
+    );
+    assert.equal(
+      JSON.stringify(q4.value),
+      JSON.stringify({ o: "or", v: [{ o: "and", v: [t1] }, t2, { o: "and", v: [t3] }] })
+    );
+
+    // Final, sorta-real use-case: Either we're in Chicago/Evanston, US, or we're in a 606*
+    // zipcode and our name is mr. Schwaab
+    let q5 = new DslQuery(t1).and(t2).or({ o: "and", v: [t3, t4] });
+    assert.equal(
+      JSON.stringify(q5.value),
+      JSON.stringify({ o: "or", v: [{ o: "and", v: [t1, t2] }, { o: "and", v: [t3, t4] }] })
+    );
+
+    // Go to string
+    let r = q5.toString();
+    assert.equal(
+      r[0],
+      "(`country` = ? and (`city` = ? or `city` = ?)) or (`zip` like ? and `name` = ?)"
+    );
+    assert.equal(r[1].length, 5);
+    assert.equal(r[1][0], "US");
+    assert.equal(r[1][1], "Chicago");
+    assert.equal(r[1][2], "Evanston");
+    assert.equal(r[1][3], "606%");
+    assert.equal(r[1][4], "mr. schwaab");
   });
 });
