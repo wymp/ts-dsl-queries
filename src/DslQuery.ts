@@ -59,7 +59,7 @@ export class DslQuery implements DslQueryBuilder {
       return null;
     }
 
-    const get = function(k: string, node: QueryNode): Array<QueryLeaf> {
+    const get = function(k: string, node: QueryNode): Array<QueryLeaf> | null {
       let values: Array<QueryLeaf> = [];
       for (let v of node) {
         if (isQueryLeaf(v)) {
@@ -67,10 +67,13 @@ export class DslQuery implements DslQueryBuilder {
             values.push(v);
           }
         } else {
-          values = values.concat(get(k, v.v));
+          const newValues = get(k, v.v);
+          if (newValues) {
+            values = values.concat(newValues);
+          }
         }
       }
-      return values;
+      return values.length === 0 ? null : values;
     };
 
     return get(key, this._value.v);
