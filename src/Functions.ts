@@ -279,10 +279,9 @@ export const defaultTranslatorFunction = function(
   return toSqlQuery(leaf, fieldDelimiter);
 };
 
-export const parseDslQuery = function(
-  q: any,
-  querySpec: Partial<QuerySpec> = {}
-): DslQueryData | null {
+export function parseDslQuery(q: null | undefined | "", querySpec?: Partial<QuerySpec>): null;
+export function parseDslQuery(q: any, querySpec?: Partial<QuerySpec>): DslQueryData;
+export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQueryData | null {
   if (q === null || typeof q === "undefined" || (typeof q === "string" && q.trim() === "")) {
     return null;
   }
@@ -363,7 +362,7 @@ export const parseDslQuery = function(
   }
 
   return q;
-};
+}
 
 export const dslQueryToString = function(
   q: DslQueryData,
