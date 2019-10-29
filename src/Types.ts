@@ -22,3 +22,7 @@ export interface DslQueryBuilder {
 }
 
 export type TranslatorFunction = (leaf: QueryLeaf) => [string, Array<Value>];
+
+export interface FieldMap {
+  [fromField: string]: string;
+}

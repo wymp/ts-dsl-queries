@@ -7,6 +7,7 @@ import {
   DslQueryData,
   QuerySpec,
   TranslatorFunction,
+  FieldMap,
 } from "./Types";
 import * as errors from "./Errors";
 
@@ -222,6 +223,26 @@ export const validateDslQueryValue = function(
 
   return o;
 };
+
+// TODO: Change DslQueryData to FilterData
+export function applyFieldMap(f: DslQueryData, map: FieldMap): DslQueryData {
+  // Initialize new filter
+  const newFilter: Partial<DslQueryData> = {
+    o: f.o,
+    v: [],
+  };
+
+  // For each QueryNode, sweep through and copy/translate
+  for (const v of f.v) {
+    if (isQueryLeaf(v)) {
+      newFilter.v!.push([map[v[0]] || v[0], v[1], v[2]]);
+    } else {
+      newFilter.v!.push(applyFieldMap(v, map));
+    }
+  }
+
+  return <DslQueryData>newFilter;
+}
 
 export const dslQueryDefaultComparisonOperators = [
   "=",

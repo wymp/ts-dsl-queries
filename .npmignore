@@ -1,0 +1,5 @@
+.vimrc
+.prettierignore
+src
+tests
+tsconfig*

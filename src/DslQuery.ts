@@ -6,6 +6,7 @@ import {
   QueryLeaf,
   QueryNode,
   TranslatorFunction,
+  FieldMap,
 } from "./Types";
 import {
   parseDslQuery,
@@ -13,6 +14,7 @@ import {
   toSqlQuery,
   isDslQueryData,
   isQueryLeaf,
+  applyFieldMap,
 } from "./Functions";
 
 const isDslQuery = function(q: any): q is DslQuery {
@@ -93,6 +95,20 @@ export class DslQuery implements DslQueryBuilder {
 
   public or(q: DslQuery | DslQueryData | QueryNode | QueryLeaf): DslQuery {
     return this.modifyQuery(q, "or");
+  }
+
+  public mapFields(map: FieldMap): DslQuery {
+    let v: DslQueryData = this._value ? deepMerge({}, this._value) : { v: [] };
+
+    // If there's no query data, then no sense in cloning
+    if (v === null) {
+      return this;
+    }
+
+    // Otherwise, return a fresh query
+    const newQuery = new DslQuery();
+    newQuery._value = applyFieldMap(v, map);
+    return newQuery;
   }
 
   protected modifyQuery(

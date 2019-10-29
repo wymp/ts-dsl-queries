@@ -8,10 +8,11 @@ import {
   isQueryLeaf,
   DslQuery,
   DslQueryData,
+  applyFieldMap,
 } from "../src/index";
 import * as errors from "@openfinance/http-errors";
 
-const complexQueryData = {
+const complexQueryData: DslQueryData = {
   o: "and",
   v: [
     ["name", "=", "test"],
@@ -298,5 +299,35 @@ describe("DslQuery", function() {
     assert.equal(r[1][2], "Evanston");
     assert.equal(r[1][3], "606%");
     assert.equal(r[1][4], "mr. schwaab");
+  });
+
+  // TODO: Implement solution for table aliases
+  it("should translate fields", () => {
+    // The final string to test against
+    const finalString = complexQueryString
+      .replace(/`name`/g, "`le`.`name`")
+      .replace(/`parent`/g, "`parentId`")
+      .replace(/`age`/g, "`gb`.`yearsOld`");
+
+    // The field name map
+    const map = {
+      name: "le`.`name",
+      parent: "parentId",
+      age: "gb`.`yearsOld",
+    };
+
+    // The raw function test
+    const newData = applyFieldMap(complexQueryData, map);
+    const q = new DslQuery(newData);
+    const r = q.toString();
+    assert.equal(finalString, r[0]);
+
+    // The full DslQuery test
+    const q2 = new DslQuery(complexQueryData);
+    const q3 = q2.mapFields(map);
+
+    // Original should remain the same, but new one would reflect mapping
+    assert.equal(complexQueryString, q2.toString()[0]);
+    assert.equal(finalString, q3.toString()[0]);
   });
 });
