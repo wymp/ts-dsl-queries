@@ -100,7 +100,10 @@ describe("parseDslQuery", () => {
         JSON.stringify({ v: "not correct" }),
         "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
       ],
-      [JSON.stringify({ v: [["myField", "is", "something"]] }), "'is' is not a valid operator"],
+      [
+        JSON.stringify({ v: [["myField", "isn't", "something"]] }),
+        "'isn't' is not a valid operator",
+      ],
       [
         JSON.stringify({ v: [["myField", "=", ["something"]]] }),
         "You've supplied an array of values, but used a comparison operator other than",
@@ -121,6 +124,13 @@ describe("parseDslQuery", () => {
         );
       }
     });
+  });
+
+  it("should validate case-insensitively", () => {
+    let q = parseDslQuery(JSON.stringify(["name", "LIKE", "%test%"]));
+    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "%test%");
+    let r = parseDslQuery(JSON.stringify(["name", "like", "%test%"]));
+    assert.equal(<Value>(r!.v[0] as QueryLeaf)[2], "%test%");
   });
 
   it("should accept query spec with or without defaultComparisonOperators", () => {

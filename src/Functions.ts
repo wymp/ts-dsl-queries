@@ -153,7 +153,10 @@ export const validateDslQueryValue = function(
       }
 
       // If we're checking the operator, check it
-      if (checkOperator && operatorSet.indexOf(next[1]) === -1) {
+      if (
+        checkOperator &&
+        operatorSet.map(v => v.toLowerCase()).indexOf(next[1].toLowerCase()) === -1
+      ) {
         o.push({
           code: "InvalidDslQueryComparisonOperator",
           text:
