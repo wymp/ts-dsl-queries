@@ -258,6 +258,8 @@ export const dslQueryDefaultComparisonOperators = [
   "in",
   "not in",
   "between",
+  "is",
+  "is not",
 ];
 
 export const toSqlQuery = function(
