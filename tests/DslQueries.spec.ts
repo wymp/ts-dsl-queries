@@ -10,7 +10,7 @@ import {
   DslQueryData,
   applyFieldMap,
 } from "../src/index";
-import * as errors from "@openfinance/http-errors";
+import * as errors from "@wymp/http-errors";
 
 const complexQueryData: DslQueryData = {
   o: "and",
@@ -23,7 +23,10 @@ const complexQueryData: DslQueryData = {
         ["status", "in", ["retired", "deceased", "disabled"]],
         {
           o: "and",
-          v: [["parent", "in", ["bob", "tammy"]], ["status", "=", "youthful"]],
+          v: [
+            ["parent", "in", ["bob", "tammy"]],
+            ["status", "=", "youthful"],
+          ],
         },
       ],
     },
@@ -169,14 +172,27 @@ describe("dslQueryToString", () => {
     assert.equal(r[1][0], "2000-01-01 00:00:00");
     assert.equal(r[1][1], "2001-01-01 00:00:00");
 
-    q = parseDslQuery(JSON.stringify([["name", "=", "test"], ["age", ">", 30]]));
+    q = parseDslQuery(
+      JSON.stringify([
+        ["name", "=", "test"],
+        ["age", ">", 30],
+      ])
+    );
     r = dslQueryToString(q!);
     assert.equal(r[0], "`name` = ? and `age` > ?");
     assert.equal(r[1].length, 2);
     assert.equal(r[1][0], "test");
     assert.equal(r[1][1], 30);
 
-    q = parseDslQuery(JSON.stringify({ o: "or", v: [["name", "=", "test"], ["age", ">", 30]] }));
+    q = parseDslQuery(
+      JSON.stringify({
+        o: "or",
+        v: [
+          ["name", "=", "test"],
+          ["age", ">", 30],
+        ],
+      })
+    );
     r = dslQueryToString(q!);
     assert.equal(r[0], "`name` = ? or `age` > ?");
     assert.equal(r[1].length, 2);
@@ -258,7 +274,13 @@ describe("DslQuery", function() {
 
   it("should properly modify simple and complex queries", () => {
     const t1 = <QueryLeaf>["country", "=", "US"];
-    const t2 = <DslQueryData>{ o: "or", v: [["city", "=", "Chicago"], ["city", "=", "Evanston"]] };
+    const t2 = <DslQueryData>{
+      o: "or",
+      v: [
+        ["city", "=", "Chicago"],
+        ["city", "=", "Evanston"],
+      ],
+    };
     const t3 = <QueryLeaf>["zip", "like", "606%"];
     const t4 = <QueryLeaf>["name", "=", "mr. schwaab"];
 
@@ -294,7 +316,13 @@ describe("DslQuery", function() {
     let q5 = new DslQuery(t1).and(t2).or({ o: "and", v: [t3, t4] });
     assert.equal(
       JSON.stringify(q5.value),
-      JSON.stringify({ o: "or", v: [{ o: "and", v: [t1, t2] }, { o: "and", v: [t3, t4] }] })
+      JSON.stringify({
+        o: "or",
+        v: [
+          { o: "and", v: [t1, t2] },
+          { o: "and", v: [t3, t4] },
+        ],
+      })
     );
 
     // Go to string

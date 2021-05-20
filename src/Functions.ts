@@ -365,7 +365,7 @@ export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQu
   } else {
     throw new errors.BadQuery(
       "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf, " +
-        `a DslQueryNode, or a DslQuery (see https://github.com/OpenFinanceIO/ts-dsl-queries.git ` +
+        `a DslQueryNode, or a DslQuery (see https://github.com/wymp/ts-dsl-queries.git ` +
         `for more information). Original query: '${orig}'`,
       "MalformedInputObject"
     );
