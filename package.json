@@ -1,6 +1,6 @@
 {
   "name": "@wymp/dsl-queries",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "A small node library for normalizing and validating incoming DSL queries in a specific format.",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "tsc -p tsconfig.test.json && mocha dist-tests/tests",
-    "prepublishOnly": "tsc"
+    "prepublishOnly": "rm -Rf dist/*; npx -p typescript tsc"
   },
   "author": "Wymp",
   "license": "MIT",
