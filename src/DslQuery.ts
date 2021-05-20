@@ -1,20 +1,21 @@
 import {
   Value,
-  QuerySpec,
+  DomainSpec,
   DslQueryBuilder,
   DslQueryData,
-  QueryLeaf,
-  QueryNode,
+  FilterData,
+  FilterLeaf,
+  FilterNode,
   TranslatorFunction,
   FieldMap,
 } from "./Types";
 import {
-  parseDslQuery,
+  parseFilter,
   dslQueryToString,
   toSqlQuery,
   isDslQueryData,
-  isQueryLeaf,
   applyFieldMap,
+  isFilterLeaf,
 } from "./Functions";
 
 const isDslQuery = function(q: any): q is DslQuery {
@@ -25,8 +26,8 @@ export class DslQuery implements DslQueryBuilder {
   private _value: DslQueryData | null = null;
   public static translator: TranslatorFunction = toSqlQuery;
 
-  public constructor(q?: any, querySpec: Partial<QuerySpec> = {}) {
-    this._value = parseDslQuery(q, querySpec);
+  public constructor(q?: any, querySpec: Partial<DomainSpec> = {}, sort?: string) {
+    this._value = parseFilter(q, querySpec);
   }
 
   public get value(): DslQueryData | null {
@@ -38,9 +39,9 @@ export class DslQuery implements DslQueryBuilder {
       return false;
     }
 
-    const has = function(k: string, node: QueryNode): boolean {
+    const has = function(k: string, node: FilterNode): boolean {
       for (let v of node) {
-        if (isQueryLeaf(v)) {
+        if (isFilterLeaf(v)) {
           if (v[0] === k) {
             return true;
           }
@@ -56,15 +57,15 @@ export class DslQuery implements DslQueryBuilder {
     return has(key, this._value.v);
   }
 
-  public get(key: string): Array<QueryLeaf> | null {
+  public get(key: string): Array<FilterLeaf> | null {
     if (this._value === null) {
       return null;
     }
 
-    const get = function(k: string, node: QueryNode): Array<QueryLeaf> | null {
-      let values: Array<QueryLeaf> = [];
+    const get = function(k: string, node: FilterNode): Array<FilterLeaf> | null {
+      let values: Array<FilterLeaf> = [];
       for (let v of node) {
-        if (isQueryLeaf(v)) {
+        if (isFilterLeaf(v)) {
           if (v[0] === k) {
             values.push(v);
           }
@@ -89,11 +90,11 @@ export class DslQuery implements DslQueryBuilder {
     }
   }
 
-  public and(q: DslQuery | DslQueryData | QueryNode | QueryLeaf): DslQuery {
+  public and(q: DslQuery | DslQueryData | FilterNode | FilterLeaf): DslQuery {
     return this.modifyQuery(q, "and");
   }
 
-  public or(q: DslQuery | DslQueryData | QueryNode | QueryLeaf): DslQuery {
+  public or(q: DslQuery | DslQueryData | FilterNode | FilterLeaf): DslQuery {
     return this.modifyQuery(q, "or");
   }
 
@@ -112,7 +113,7 @@ export class DslQuery implements DslQueryBuilder {
   }
 
   protected modifyQuery(
-    q: DslQuery | DslQueryData | QueryNode | QueryLeaf,
+    q: DslQuery | DslQueryData | FilterNode | FilterLeaf,
     operator: "and" | "or"
   ): DslQuery {
     let v: DslQueryData = this._value ? deepMerge({}, this._value) : { v: [] };
@@ -120,7 +121,7 @@ export class DslQuery implements DslQueryBuilder {
     // Convert DslQueries, leaves, and nodes to DslQueryData
     if (isDslQuery(q)) {
       q = q.value!;
-    } else if (isQueryLeaf(q)) {
+    } else if (isFilterLeaf(q)) {
       q = { o: "and", v: [q] };
     } else if (!isDslQueryData(q, true)) {
       q = { o: "and", v: q };
@@ -148,6 +149,10 @@ export class DslQuery implements DslQueryBuilder {
     newQuery._value = v;
     return newQuery;
   }
+
+  sort(val: string): DslQuery;
+  page(type: PaginationType.cursor, val: string, size?: number): DslQuery;
+  page(type: PaginationType.number, val: number, size?: number): DslQuery;
 }
 
 /**

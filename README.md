@@ -9,7 +9,8 @@ feedback to the user about how to make the query valid, and also to ensure that 
 not being abused.
 
 To that end, this library codifies a general "parse tree" data structure written in JSON
-that can be used to easily understand an incoming query. The query would take the form of
+that can be used to (relatively) easily understand an incoming query. The query would take
+the form of
 
 - A single `QueryLeaf` object;
 - A single `QueryNode` object (assumes 'and') with one or more `QueryLeaf`s; or
@@ -18,6 +19,10 @@ that can be used to easily understand an incoming query. The query would take th
 For reference, the above objects are defined as follows:
 
 ```ts
+type FieldName = string;
+type ComparisonOperator = string;
+type Value = string | number | boolean | null;
+
 QueryLeaf = [FieldName, ComparisonOperator, Value | Array<Value>];
 
 QueryNode = Array<QueryLeaf | DslQueryData>;
@@ -26,9 +31,6 @@ DslQueryData {
   o: "and" | "or";
   v: QueryNode;
 }
-
-// Value is a short-hand alias:
-Value = string | number | boolean | null;
 ```
 
 A query can be as simple as `["myField","=","someval"]`, but it can also be more complex.

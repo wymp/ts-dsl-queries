@@ -2,10 +2,10 @@ import {
   FieldName,
   ComparisonOperator,
   Value,
-  QueryLeaf,
-  QueryNode,
-  DslQueryData,
-  QuerySpec,
+  FilterLeaf,
+  FilterNode,
+  FilterData,
+  DomainSpec,
   TranslatorFunction,
   FieldMap,
 } from "./Types";
@@ -19,7 +19,7 @@ interface GenericParamSet {
   [param: string]: unknown;
 }
 
-export const isQueryLeaf = function(q: any): q is QueryLeaf {
+export const isFilterLeaf = function(q: any): q is FilterLeaf {
   return (
     isArray(q) &&
     q.length === 3 &&
@@ -33,27 +33,22 @@ export const isQueryLeaf = function(q: any): q is QueryLeaf {
   );
 };
 
-export const isQueryNode = function(q: any, lite: boolean = false): q is QueryNode {
-  return isArray(q) && (q.length === 0 || isQueryLeaf(q[0]) || isDslQueryData(q[0], lite));
+export const isFilterNode = function(q: any, lite: boolean = false): q is FilterNode {
+  return isArray(q) && (q.length === 0 || isFilterLeaf(q[0]) || isFilterData(q[0], lite));
 };
 
-export const isDslQueryData = function(q: any, lite: boolean = false): q is DslQueryData {
+export const isFilterData = function(q: any, lite: boolean = false): q is FilterData {
   if (lite) {
     return typeof q === "object" && q.hasOwnProperty("v");
   } else {
-    return typeof q === "object" && q.hasOwnProperty("v") && isQueryNode(q["v"], lite);
+    return typeof q === "object" && q.hasOwnProperty("v") && isFilterNode(q["v"], lite);
   }
 };
 
-/**
- * @deprecated This function is for backward compatibility only. Use isDslQuery instead
- */
-export const isQuery = isDslQueryData;
-
-export const isQuerySpec = function(spec: any): spec is QuerySpec {
+export const isDomainSpec = function(spec: any): spec is DomainSpec {
   if (typeof spec !== "object") {
-    throw new errors.BadQuerySpec(
-      `Invalid QuerySpec: QuerySpec must be an object.`,
+    throw new errors.BadDomainSpec(
+      `Invalid DomainSpec: DomainSpec must be an object.`,
       "ObjectRequired"
     );
   }
@@ -66,22 +61,22 @@ export const isQuerySpec = function(spec: any): spec is QuerySpec {
   });
 
   if (invalidKeys.length > 0) {
-    throw new errors.BadQuerySpec(
-      `Invalid QuerySpec: Invalid keys found: '${invalidKeys.join("', '")}'`,
+    throw new errors.BadDomainSpec(
+      `Invalid DomainSpec: Invalid keys found: '${invalidKeys.join("', '")}'`,
       "InvalidKeys"
     );
   }
 
   if (!spec.hasOwnProperty("defaultComparisonOperators")) {
-    throw new errors.BadQuerySpec(
-      "Invalid QuerySpec: Missing 'defaultComparisonOperators' array",
+    throw new errors.BadDomainSpec(
+      "Invalid DomainSpec: Missing 'defaultComparisonOperators' array",
       "MissingComparisonOperators"
     );
   }
 
   if (!isArray(spec.defaultComparisonOperators)) {
-    throw new errors.BadQuerySpec(
-      "Invalid QuerySpec: 'defaultComparisonOperators' must be an array.",
+    throw new errors.BadDomainSpec(
+      "Invalid DomainSpec: 'defaultComparisonOperators' must be an array.",
       "ComparisonOperatorsNotArray"
     );
   }
@@ -90,8 +85,8 @@ export const isQuerySpec = function(spec: any): spec is QuerySpec {
     (spec.hasOwnProperty("fieldSpecs") && typeof spec.fieldSpecs !== "object") ||
     isArray(spec.fieldSpecs)
   ) {
-    throw new errors.BadQuerySpec(
-      "Invalid QuerySpec: 'fieldSpecs' must be a map of field names to arrays of acceptable " +
+    throw new errors.BadDomainSpec(
+      "Invalid DomainSpec: 'fieldSpecs' must be a map of field names to arrays of acceptable " +
         "comparison operators for the given field.",
       "MalformedFieldSpecs"
     );
@@ -117,8 +112,8 @@ export const validateDslQueryOperator = function(
 };
 
 export const validateDslQueryValue = function(
-  val: QueryNode,
-  querySpec: QuerySpec
+  val: FilterNode,
+  domainSpec: DomainSpec
 ): Array<errors.ObstructionInterface<GenericParamSet>> {
   let o: Array<errors.ObstructionInterface<GenericParamSet>> = [];
 
@@ -129,25 +124,25 @@ export const validateDslQueryValue = function(
   for (let next of val) {
     // If it's a full query, recurse
     if (isDslQueryData(next, true)) {
-      o = o.concat(validateDslQueryValue(next.v, querySpec));
+      o = o.concat(validateDslQueryValue(next.v, domainSpec));
     } else {
       let checkOperator: boolean = true;
-      let operatorSet: Array<string> = querySpec.defaultComparisonOperators;
+      let operatorSet: Array<string> = domainSpec.defaultComparisonOperators;
 
       // Otherwise, if we've provided field specs, enforce them
-      if (querySpec.fieldSpecs) {
+      if (domainSpec.fieldSpecs) {
         // If the given field is not in the field specs, it's invalid
-        if (!querySpec.fieldSpecs.hasOwnProperty(next[0])) {
+        if (!domainSpec.fieldSpecs.hasOwnProperty(next[0])) {
           o.push({
             code: "InvalidDslQueryField",
             text:
               `'${next[0]}' is not a valid field for this DslQuery. Valid fields are ` +
-              `'${querySpec.fieldSpecs.keys.join("', '")}'`,
+              `'${domainSpec.fieldSpecs.keys.join("', '")}'`,
           });
           checkOperator = false;
         } else {
-          if (querySpec.fieldSpecs[next[0]].length > 0) {
-            operatorSet = querySpec.fieldSpecs[next[0]];
+          if (domainSpec.fieldSpecs[next[0]].length > 0) {
+            operatorSet = domainSpec.fieldSpecs[next[0]];
           }
         }
       }
@@ -266,7 +261,7 @@ export const dslQueryDefaultComparisonOperators = [
 ];
 
 export const toSqlQuery = function(
-  leaf: QueryLeaf,
+  leaf: FilterLeaf,
   fieldDelimiter: string = "`"
 ): [string, Array<Value>] {
   let queryString: string = `${fieldDelimiter}${leaf[0]}${fieldDelimiter} ${leaf[1]}`;
@@ -299,26 +294,26 @@ export const toSqlQuery = function(
 };
 
 export const defaultTranslatorFunction = function(
-  leaf: QueryLeaf,
+  leaf: FilterLeaf,
   fieldDelimiter: string = "`"
 ): [string, Array<Value>] {
   return toSqlQuery(leaf, fieldDelimiter);
 };
 
-export function parseDslQuery(q: null | undefined | "", querySpec?: Partial<QuerySpec>): null;
-export function parseDslQuery(q: any, querySpec?: Partial<QuerySpec>): DslQueryData;
-export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQueryData | null {
+export function parseFilter(q: null | undefined | "", domainSpec?: Partial<DomainSpec>): null;
+export function parseFilter(q: any, domainSpec?: Partial<DomainSpec>): FilterData;
+export function parseFilter(q: any, domainSpec: Partial<DomainSpec> = {}): FilterData | null {
   if (q === null || typeof q === "undefined" || (typeof q === "string" && q.trim() === "")) {
     return null;
   }
 
   // Validate Query Spec
-  if (!querySpec.hasOwnProperty("defaultComparisonOperators")) {
-    (querySpec as any).defaultComparisonOperators = dslQueryDefaultComparisonOperators;
+  if (!domainSpec.hasOwnProperty("defaultComparisonOperators")) {
+    (domainSpec as any).defaultComparisonOperators = dslQueryDefaultComparisonOperators;
   }
-  if (!isQuerySpec(querySpec)) {
-    // NOTE: because isQuerySpec throws errors, this will never execute (but that's alright)
-    throw new errors.BadQuerySpec("Invalid QuerySpec");
+  if (!isDomainSpec(domainSpec)) {
+    // NOTE: because isDomainSpec throws errors, this will never execute (but that's alright)
+    throw new errors.BadDomainSpec("Invalid DomainSpec");
   }
 
   // Capture original query for error reporting
@@ -347,25 +342,25 @@ export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQu
   }
 
   // Normalize Query
-  if (isQueryLeaf(q)) {
+  if (isFilterLeaf(q)) {
     q = {
       o: "and",
       v: [q],
     };
-  } else if (isQueryNode(q)) {
+  } else if (isFilterNode(q)) {
     q = {
       o: "and",
       v: q,
     };
-  } else if (isDslQueryData(q)) {
+  } else if (isFilterData(q)) {
     if (!q.o) {
       q.o = "and";
     }
     q.o = <"and" | "or">q.o.toLowerCase();
   } else {
     throw new errors.BadQuery(
-      "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf, " +
-        `a DslQueryNode, or a DslQuery (see https://github.com/OpenFinanceIO/ts-dsl-queries.git ` +
+      "The query you've passed does not appear to be valid. It should either be a DslFilterLeaf, " +
+        `a DslFilterNode, or a DslQuery (see https://github.com/OpenFinanceIO/ts-dsl-queries.git ` +
         `for more information). Original query: '${orig}'`,
       "MalformedInputObject"
     );
@@ -374,7 +369,7 @@ export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQu
   // Full query validations
   let o: Array<errors.ObstructionInterface<GenericParamSet>> = [];
   o = o.concat(validateDslQueryOperator(q.o, ["and", "or"]));
-  o = o.concat(validateDslQueryValue(q.v, querySpec));
+  o = o.concat(validateDslQueryValue(q.v, domainSpec));
 
   // If we found obstructions, throw them
   if (o.length > 0) {
@@ -390,20 +385,75 @@ export function parseDslQuery(q: any, querySpec: Partial<QuerySpec> = {}): DslQu
   return q;
 }
 
-export const dslQueryToString = function(
-  q: DslQueryData,
+export const filterToString = function(
+  filter: FilterData,
   translator: TranslatorFunction | null = null,
   parens: boolean = false
-): [string, Array<Value>] {
+): [ string, Array<Value> ] {
   if (translator === null) {
     translator = defaultTranslatorFunction;
   }
 
   const parts: Array<string> = [];
   let params: Array<Value> = [];
+  for (let i = 0; i < filter.v.length; i++) {
+    const el = filter.v[i];
+    const result: [string, Array<Value>] = isFilterLeaf(el)
+      ? translator(el)
+      : dslQueryToString(el, translator, true);
+
+    parts.push(result[0]);
+    params = params.concat(result[1]);
+  }
+
+  let queryString = parts.join(` ${filter.o} `);
+  if (parens) {
+    queryString = `(${queryString})`;
+  }
+
+  return [queryString, params];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////
+// PICK BACK UP HERE
+// ////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export const dslQueryToString = function(
+  q: DslQueryData,
+  translator: TranslatorFunction | null = null,
+  parens: boolean = false
+): [string, Array<Value>] {
+  let filter = filterToString(
+  let queryString = 
+  const parts: Array<string> = [];
+  let params: Array<Value> = [];
   for (let i = 0; i < q.v.length; i++) {
     const el = q.v[i];
-    const result: [string, Array<Value>] = isQueryLeaf(el)
+    const result: [string, Array<Value>] = isFilterLeaf(el)
       ? translator(el)
       : dslQueryToString(el, translator, true);
 

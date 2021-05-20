@@ -4,15 +4,16 @@ import {
   parseDslQuery,
   dslQueryToString,
   Value,
-  QueryLeaf,
-  isQueryLeaf,
+  FilterLeaf,
+  isFilterLeaf,
   DslQuery,
+  FilterData,
   DslQueryData,
   applyFieldMap,
 } from "../src/index";
 import * as errors from "@openfinance/http-errors";
 
-const complexQueryData: DslQueryData = {
+const complexQueryData: FilterData = {
   o: "and",
   v: [
     ["name", "=", "test"],
@@ -35,7 +36,7 @@ const complexQueryString =
   "(`parent` in (?, ?) and `status` = ?))";
 
 describe("parseDslQuery", () => {
-  const testQuerySpec = {
+  const testDomainSpec = {
     fieldSpecs: {
       name: ["=", "!=", "in"],
       email: ["=", "!="],
@@ -44,10 +45,10 @@ describe("parseDslQuery", () => {
   };
 
   it("should return null for null or blank values", () => {
-    assert.isNull(parseDslQuery(null, testQuerySpec));
-    assert.isNull(parseDslQuery("", testQuerySpec));
-    assert.isNull(parseDslQuery("     ", testQuerySpec));
-    assert.isNull(parseDslQuery("   \n\n  ", testQuerySpec));
+    assert.isNull(parseDslQuery(null, testDomainSpec));
+    assert.isNull(parseDslQuery("", testDomainSpec));
+    assert.isNull(parseDslQuery("     ", testDomainSpec));
+    assert.isNull(parseDslQuery("   \n\n  ", testDomainSpec));
   });
 
   it("should validate incoming query spec", () => {
@@ -90,15 +91,15 @@ describe("parseDslQuery", () => {
       ["null", "It should have parsed to a valid JSON object or array"],
       [
         JSON.stringify({ v: ["one", "two", "three", "four"] }),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
+        "The query you've passed does not appear to be valid. It should either be a DslFilterLeaf,",
       ],
       [
         JSON.stringify(["one", "two", "three", "four"]),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
+        "The query you've passed does not appear to be valid. It should either be a DslFilterLeaf,",
       ],
       [
         JSON.stringify({ v: "not correct" }),
-        "The query you've passed does not appear to be valid. It should either be a DslQueryLeaf,",
+        "The query you've passed does not appear to be valid. It should either be a DslFilterLeaf,",
       ],
       [
         JSON.stringify({ v: [["myField", "isn't", "something"]] }),
@@ -135,7 +136,7 @@ describe("parseDslQuery", () => {
 
   it("should accept query spec with or without defaultComparisonOperators", () => {
     let q = parseDslQuery(JSON.stringify(["name", "=", "test"]), { fieldSpecs: { name: ["="] } });
-    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
+    assert.equal(<Value>(q!.v[0] as FilterLeaf)[2], "test");
 
     q = parseDslQuery(JSON.stringify(["name", "=", "test"]), {
       fieldSpecs: {
@@ -143,12 +144,12 @@ describe("parseDslQuery", () => {
       },
       defaultComparisonOperators: ["="],
     });
-    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
+    assert.equal(<Value>(q!.v[0] as FilterLeaf)[2], "test");
   });
 
   it("should parse query without query spec", () => {
     let q = parseDslQuery(JSON.stringify(["name", "=", "test"]));
-    assert.equal(<Value>(q!.v[0] as QueryLeaf)[2], "test");
+    assert.equal(<Value>(q!.v[0] as FilterLeaf)[2], "test");
   });
 });
 
@@ -208,7 +209,7 @@ describe("DslQuery", function() {
     assert.isNotNull(q.value);
 
     const clause = q.value!.v[0];
-    if (isQueryLeaf(clause)) {
+    if (isFilterLeaf(clause)) {
       assert.equal(clause[0], "name");
       assert.equal(clause[1], "=");
       assert.equal(clause[2], "jim chavo");
@@ -257,10 +258,10 @@ describe("DslQuery", function() {
   });
 
   it("should properly modify simple and complex queries", () => {
-    const t1 = <QueryLeaf>["country", "=", "US"];
+    const t1 = <FilterLeaf>["country", "=", "US"];
     const t2 = <DslQueryData>{ o: "or", v: [["city", "=", "Chicago"], ["city", "=", "Evanston"]] };
-    const t3 = <QueryLeaf>["zip", "like", "606%"];
-    const t4 = <QueryLeaf>["name", "=", "mr. schwaab"];
+    const t3 = <FilterLeaf>["zip", "like", "606%"];
+    const t4 = <FilterLeaf>["name", "=", "mr. schwaab"];
 
     let q1 = new DslQuery(t1);
     assert.equal(JSON.stringify(q1.value), JSON.stringify({ o: "and", v: [t1] }));
@@ -339,5 +340,44 @@ describe("DslQuery", function() {
     // Original should remain the same, but new one would reflect mapping
     assert.equal(complexQueryString, q2.toString()[0]);
     assert.equal(finalString, q3.toString()[0]);
+  });
+
+  it("should throw errors on bad sort parameter", () => {
+    const t1 = <FilterLeaf>["country", "=", "US"];
+    const badSorts = [
+      ">myField",
+      "<myField",
+      "-myField<",
+      "-myField>",
+      "`myField`",
+      "myField,>otherField",
+    ];
+    for (const x of badSorts) {
+      assert.throws(() => new DslQuery(t1, {}, x), /invalid sort/i);
+    }
+  });
+
+  it("should not throw errors on good sort parameters", () => {
+    const t1 = <FilterLeaf>["country", "=", "US"];
+    const goodSorts = [
+      "myField",
+      "myField,otherField",
+      "myField,-otherField",
+      "-myField,otherField",
+      "-myField,-otherField",
+      "+myField,+otherField",
+    ];
+    for (const x of goodSorts) {
+      assert.doesNotThrow(() => new DslQuery(t1, {}, x), /invalid sort/i);
+    }
+  });
+
+  it("should properly parse sort parameters to DslQueryData", () => {
+    const t1 = <FilterLeaf>["country", "=", "US"];
+    const q = new DslQuery(t1, {}, "+myField");
+    assert.equal(1, q.value.sort.length);
+    assert.equal(2, q.value.sort[0].length);
+    assert.equal("myField", q.value.sort[0][0]);
+    assert.equal("asc", q.value.sort[0][1]);
   });
 });
