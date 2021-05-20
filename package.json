@@ -1,10 +1,10 @@
 {
-  "name": "@openfinance/dsl-queries",
-  "version": "2.3.2",
+  "name": "@wymp/dsl-queries",
+  "version": "2.4.0",
   "description": "A small node library for normalizing and validating incoming DSL queries in a specific format.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OpenFinanceIO/ts-dsl-queries.git"
+    "url": "https://github.com/wymp/ts-dsl-queries.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,19 +12,19 @@
     "test": "tsc -p tsconfig.test.json && mocha dist-tests/tests",
     "prepublishOnly": "tsc"
   },
-  "author": "OpenFinance",
+  "author": "Wymp",
   "license": "MIT",
   "dependencies": {
-    "@openfinance/http-errors": "^1.2.0"
+    "@wymp/http-errors": "^1.8.0"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.0",
+    "@types/chai": "^4.2.18",
     "@types/mocha": "^5.2.7",
-    "@types/node": "^10.14.15",
-    "chai": "^4.2.0",
+    "@types/node": "^10.17.60",
+    "chai": "^4.3.4",
     "husky": "^1.3.1",
-    "mocha": "^6.2.0",
-    "prettier": "^1.18.2",
+    "mocha": "^6.2.3",
+    "prettier": "^1.19.1",
     "pretty-quick": "^1.11.1"
   },
   "prettier": {

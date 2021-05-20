@@ -1,6 +1,9 @@
 DSL Queries
 ==========================================================================
 
+**NOTE: This library was an experiment that is now considered largely failed. You can use it, but it
+probably won't get many updates.**
+
 This library was intended to make general data filter queries more manageable. The problems
 it attempts to solve are that, when we request data from some datasource (say, a REST API or
 a database), a) that request should be agnostic about the underlying datasource implementation,
@@ -95,8 +98,8 @@ const response = await request("GET", "https://my.api.com/users", {
 On the back-end, when you receive this query, you might do something like this:
 
 ```ts
-import * as Errors from "@openfinance/http-errors";
-import { DslQuery } from "@openfinance/dsl-queries";
+import * as Errors from "@wymp/http-errors";
+import { DslQuery } from "@wymp/dsl-queries";
 
 // ....
 
@@ -128,7 +131,7 @@ try {
     data: result
   });
 } catch (e) {
-  // DslQuery will throw an HttpError (from [@openfinance/http-errors](https://www.npmjs.com/package/@openfinance/http-errors))
+  // DslQuery will throw an HttpError (from [@wymp/http-errors](https://github.com/wymp/http-errors))
   // If not that, just convert it for easy responses
   if (!Errors.isHttpError(e)) {
     e = Errors.InternalServerError.fromError(e);

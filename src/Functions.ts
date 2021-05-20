@@ -360,7 +360,7 @@ export function parseFilter(q: any, domainSpec: Partial<DomainSpec> = {}): Filte
   } else {
     throw new errors.BadQuery(
       "The query you've passed does not appear to be valid. It should either be a DslFilterLeaf, " +
-        `a DslFilterNode, or a DslQuery (see https://github.com/OpenFinanceIO/ts-dsl-queries.git ` +
+        `a DslFilterNode, or a DslQuery (see https://github.com/wymp/ts-dsl-queries.git ` +
         `for more information). Original query: '${orig}'`,
       "MalformedInputObject"
     );
@@ -389,7 +389,7 @@ export const filterToString = function(
   filter: FilterData,
   translator: TranslatorFunction | null = null,
   parens: boolean = false
-): [ string, Array<Value> ] {
+): [string, Array<Value>] {
   if (translator === null) {
     translator = defaultTranslatorFunction;
   }
@@ -412,43 +412,19 @@ export const filterToString = function(
   }
 
   return [queryString, params];
-}
-
-
-
-
-
-
-
-
-
-
-
+};
 
 ////////////////////////////////////////
 // PICK BACK UP HERE
 // ////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export const dslQueryToString = function(
   q: DslQueryData,
   translator: TranslatorFunction | null = null,
   parens: boolean = false
 ): [string, Array<Value>] {
-  let filter = filterToString(
-  let queryString = 
+  //let filter = filterToString(
+  //let queryString =
   const parts: Array<string> = [];
   let params: Array<Value> = [];
   for (let i = 0; i < q.v.length; i++) {
