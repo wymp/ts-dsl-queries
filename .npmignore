@@ -1,6 +1,0 @@
-.vimrc
-.prettierignore
-src
-tests
-tsconfig*
-dist-tests

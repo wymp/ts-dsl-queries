@@ -8,6 +8,10 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -Rf dist dist-tests || true",
@@ -35,5 +39,8 @@
   "prettier": {
     "printWidth": 100,
     "trailingComma": "es5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
