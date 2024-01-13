@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "strict": true,
+    "useUnknownInCatchVariables": false,
     "declaration": true,
     "target": "es2015",
     "module": "commonjs",
